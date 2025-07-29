@@ -1148,7 +1148,7 @@
                 document.getElementById('autoStudentName').value = '';
                 document.getElementById('autoGender').value = '';
                 renderHostels();
-                fetch('https://script.google.com/macros/s/AKfycbxefTGjAGefmZNS9dVaCbBaoQLFVYzmw9OFUKl7d-a9N-AkIl6YN0GTpRxwZPupacRa/exec', {
+                fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec', {
                   method: 'POST',
                   body: JSON.stringify({
                     name: studentName,
@@ -1213,7 +1213,7 @@
             document.getElementById('manualHostelSelect').value = '';
             document.getElementById('manualRoomSelect').innerHTML = '<option value="">Select Room</option>';
             renderHostels();
-            fetch('https://script.google.com/macros/s/AKfycbxefTGjAGefmZNS9dVaCbBaoQLFVYzmw9OFUKl7d-a9N-AkIl6YN0GTpRxwZPupacRa/exec', {
+            fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec', {
               method: 'POST',
               body: JSON.stringify({
                 name: studentName,
@@ -1302,7 +1302,7 @@
             if (room[`student${bedNumber}`]) {
                 // Only send to Google Sheets if marking as paid
                 if (!room[`paid${bedNumber}`]) {
-                    fetch('https://script.google.com/macros/s/AKfycbxefTGjAGefmZNS9dVaCbBaoQLFVYzmw9OFUKl7d-a9N-AkIl6YN0GTpRxwZPupacRa/exec', {
+                    fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec', {
                         method: 'POST',
                         body: JSON.stringify({
                             name: room[`student${bedNumber}`],
@@ -1334,7 +1334,7 @@
             room[`paid${bedNumber}`] = false;
             // After clearing, if studentName and tenantCode existed, send delete request:
             if (studentName && tenantCode) {
-              fetch('https://script.google.com/macros/s/AKfycbxefTGjAGefmZNS9dVaCbBaoQLFVYzmw9OFUKl7d-a9N-AkIl6YN0GTpRxwZPupacRa/exec?delete=true', {
+              fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec?delete=true', {
                 method: 'POST',
                 body: JSON.stringify({
                   name: studentName,
@@ -1378,7 +1378,7 @@
         // Initialize the system
         initializeHostels();
         // Load persistent data from Google Sheets and update hostelData
-        fetch('https://script.google.com/macros/s/AKfycbxefTGjAGefmZNS9dVaCbBaoQLFVYzmw9OFUKl7d-a9N-AkIl6YN0GTpRxwZPupacRa/exec')
+        fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec')
           .then(response => response.json())
           .then(data => {
             data.forEach(entry => {
