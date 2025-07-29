@@ -1335,7 +1335,31 @@
 
         // Initialize the system
         initializeHostels();
-        renderHostels();
+        // Load persistent data from Google Sheets and update hostelData
+        fetch('https://script.google.com/macros/s/AKfycbxefTGjAGefmZNS9dVaCbBaoQLFVYzmw9OFUKl7d-a9N-AkIl6YN0GTpRxwZPupacRa/exec')
+          .then(response => response.json())
+          .then(data => {
+            data.forEach(entry => {
+              // Convert Hostel and Room Number to match your keys
+              const hostelId = entry.Hostel;
+              const roomKey = `Room ${entry["Room Number"]}`;
+              // Find the first empty bed in the room
+              const room = hostelData[hostelId] && hostelData[hostelId].rooms[roomKey];
+              if (room) {
+                for (let i = 1; i <= 4; i++) {
+                  if (room[`student${i}`] === null || room[`student${i}`] === undefined) {
+                    room[`student${i}`] = entry.Name;
+                    room[`tenantCode${i}`] = entry.Token;
+                    room[`paid${i}`] = true; // Assume paid if it's in the sheet
+                    room.occupancy = (room.occupancy || 0) + 1;
+                    room.status = 'partial';
+                    break;
+                  }
+                }
+              }
+            });
+            renderHostels();
+          });
 
         // Helper to check if room is forbidden for females
         function isFemaleForbiddenRoom(roomKey, gender) {
