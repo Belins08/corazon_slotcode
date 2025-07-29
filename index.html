@@ -885,6 +885,176 @@
                 alert('Error assigning slot: ' + error.message);
             }
         }
+
+        // Render hostels function
+        function renderHostels() {
+            console.log('Rendering hostels...');
+            const grid = document.getElementById('hostelGrid');
+            if (!grid) {
+                console.error('Hostel grid element not found');
+                return;
+            }
+            
+            grid.innerHTML = '';
+
+            Object.keys(hostelData).forEach(hostelId => {
+                const hostel = hostelData[hostelId];
+                const hostelDiv = document.createElement('div');
+                hostelDiv.className = 'hostel';
+                
+                hostelDiv.innerHTML = `
+                    <div class="hostel-header">${hostel.name}</div>
+                    <div class="room-grid" id="rooms-${hostelId}">
+                        ${renderRooms(hostelId)}
+                    </div>
+                `;
+                
+                grid.appendChild(hostelDiv);
+            });
+
+            updateStats();
+        }
+
+        // Render rooms for a specific hostel
+        function renderRooms(hostelId) {
+            const rooms = hostelData[hostelId].rooms;
+            return Object.keys(rooms).map(roomKey => {
+                const room = rooms[roomKey];
+                let displayText = '';
+                let priceInfo = '';
+                
+                if (room.status === 'available') {
+                    displayText = 'Available';
+                    if (room.roomPrice != null && room.maintenanceFee != null) {
+                        priceInfo = `₵${room.roomPrice} + ₵${room.maintenanceFee}`;
+                    } else {
+                        priceInfo = '';
+                    }
+                } else if (room.status === 'partial') {
+                    displayText = room.student1 || 'Partial';
+                    priceInfo = `${room.occupancy}/${getTotalBeds(room)} occupied`;
+                } else if (room.status === 'full') {
+                    displayText = `${room.student1 || ''}<br>${room.student2 || ''}`;
+                    priceInfo = `${room.occupancy}/${getTotalBeds(room)} occupied`;
+                } else if (room.status === 'reserved') {
+                    displayText = 'Reserved';
+                    priceInfo = 'Reserved';
+                }
+                
+                return `
+                    <div class="room ${room.status}" onclick="showRoomDetails('${hostelId}', '${roomKey}')">
+                        <div class="room-code">${roomKey}</div>
+                        <div class="student-name">${displayText}</div>
+                        <div class="student-id">${priceInfo}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update statistics
+        function updateStats() {
+            let totalRooms = 0;
+            let availableRooms = 0;
+            let partialRooms = 0;
+            let fullRooms = 0;
+            let reservedRooms = 0;
+
+            Object.values(hostelData).forEach(hostel => {
+                Object.values(hostel.rooms).forEach(room => {
+                    totalRooms++;
+                    switch(room.status) {
+                        case 'available': availableRooms++; break;
+                        case 'partial': partialRooms++; break;
+                        case 'full': fullRooms++; break;
+                        case 'reserved': reservedRooms++; break;
+                    }
+                });
+            });
+
+            const statsElement = document.getElementById('stats');
+            if (statsElement) {
+                statsElement.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number total-stat">${totalRooms}</div>
+                        <div class="stat-label">Total Rooms</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number available-stat">${availableRooms}</div>
+                        <div class="stat-label">Available</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number occupied-stat">${partialRooms}</div>
+                        <div class="stat-label">Partial (1/2)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number occupied-stat">${fullRooms}</div>
+                        <div class="stat-label">Full (2/2)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number reserved-stat">${reservedRooms}</div>
+                        <div class="stat-label">Reserved</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Show room details modal
+        function showRoomDetails(hostelId, roomKey) {
+            const room = hostelData[hostelId].rooms[roomKey];
+            if (!room) return;
+
+            const modal = document.getElementById('roomModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalContent = document.getElementById('modalContent');
+
+            modalTitle.textContent = `${roomKey} - Hostel ${hostelId}`;
+            
+            let bedCount = getTotalBeds(room);
+            let bedsHtml = '';
+            
+            for (let i = 1; i <= bedCount; i++) {
+                const student = room[`student${i}`];
+                const tenantCode = room[`tenantCode${i}`];
+                const paid = room[`paid${i}`];
+                
+                if (student) {
+                    const paidIcon = paid ? '✅' : '❌';
+                    bedsHtml += `
+                        <div class="bed-info">
+                            <strong>Bed ${i}:</strong> ${student} ${paidIcon}<br>
+                            <small>Token: ${tenantCode || 'N/A'}</small>
+                        </div>
+                    `;
+                } else {
+                    bedsHtml += `
+                        <div class="bed-info">
+                            <strong>Bed ${i}:</strong> Available
+                        </div>
+                    `;
+                }
+            }
+
+            modalContent.innerHTML = `
+                <div class="room-details">
+                    <p><strong>Status:</strong> ${room.status}</p>
+                    <p><strong>Occupancy:</strong> ${room.occupancy}/${bedCount}</p>
+                    ${room.roomPrice ? `<p><strong>Price:</strong> ₵${room.roomPrice} + ₵${room.maintenanceFee}</p>` : ''}
+                    <div class="beds-container">
+                        ${bedsHtml}
+                    </div>
+                </div>
+            `;
+
+            modal.style.display = 'block';
+        }
+
+        // Close modal
+        function closeModal() {
+            const modal = document.getElementById('roomModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
     </script>
 </body>
 </html>
