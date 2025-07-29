@@ -13,6 +13,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 let auth, db;
+let firebaseInitialized = false;
 
 // Function to initialize Firebase
 function initializeFirebase() {
@@ -22,9 +23,15 @@ function initializeFirebase() {
             return false;
         }
         
+        if (firebaseInitialized) {
+            console.log('Firebase already initialized');
+            return true;
+        }
+        
         firebase.initializeApp(firebaseConfig);
         auth = firebase.auth();
         db = firebase.firestore();
+        firebaseInitialized = true;
         console.log('Firebase initialized successfully');
         return true;
     } catch (error) {
@@ -33,25 +40,24 @@ function initializeFirebase() {
     }
 }
 
-// Initialize Firebase when the script loads
-if (typeof firebase !== 'undefined') {
-    initializeFirebase();
-} else {
-    // Wait for Firebase to be loaded
-    document.addEventListener('DOMContentLoaded', function() {
-        if (typeof firebase !== 'undefined') {
-            initializeFirebase();
-        } else {
-            console.error('Firebase SDK not available');
-        }
-    });
+// Wait for Firebase SDK to be loaded
+function waitForFirebase() {
+    if (typeof firebase !== 'undefined') {
+        initializeFirebase();
+    } else {
+        // Check every 100ms for Firebase to be loaded
+        setTimeout(waitForFirebase, 100);
+    }
 }
+
+// Start waiting for Firebase
+waitForFirebase();
 
 // Firebase Authentication Functions
 class FirebaseAuth {
     // Check if Firebase is initialized
     static isInitialized() {
-        return auth && db && typeof firebase !== 'undefined';
+        return firebaseInitialized && auth && db && typeof firebase !== 'undefined';
     }
 
     // Get current user
