@@ -335,17 +335,17 @@
             auth = firebase.auth();
             db = firebase.firestore(); // Initialize Firestore
             console.log('Firebase initialized successfully');
-        } catch (error) {
-            console.error('Firebase initialization error:', error);
-        }
-
-        // Function to check if Firebase is initialized
-        function isFirebaseInitialized() {
-            return auth && db;
-        }
-
-        // Authentication state observer
-        if (auth) {
+            console.log('Auth object:', auth);
+            console.log('DB object:', db);
+            
+            // Test Firestore connection
+            if (db) {
+                console.log('Firestore database is available');
+            } else {
+                console.error('Firestore database is not available');
+            }
+            
+            // Set up authentication state observer after Firebase is initialized
             auth.onAuthStateChanged(function(user) {
                 if (user) {
                     // User is signed in
@@ -391,9 +391,20 @@
                     showLogin(); // Show login form by default
                 }
             });
-                    } else {
-            console.error('Auth not initialized');
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
         }
+
+        // Function to check if Firebase is initialized
+        function isFirebaseInitialized() {
+            if (!auth || !db) {
+                console.error('Firebase not initialized. Auth:', !!auth, 'DB:', !!db);
+                return false;
+            }
+            return true;
+        }
+
+        // Authentication state observer is now handled in the Firebase initialization block above
 
         // Login function
         function login() {
@@ -607,8 +618,14 @@
         // Save user details to Firestore
         async function saveUserToFirestore(name, hostel, roomNumber, token) {
             try {
+                console.log('Attempting to save user to Firestore:', { name, hostel, roomNumber, token });
+                
                 if (!isFirebaseInitialized()) {
                     throw new Error('Firebase not initialized');
+                }
+                
+                if (!db) {
+                    throw new Error('Firestore database (db) is not defined');
                 }
                 
                 const userData = {
@@ -620,6 +637,7 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 
+                console.log('User data to save:', userData);
                 const docRef = await db.collection('users').add(userData);
                 console.log('User saved to Firestore with ID:', docRef.id);
                 return docRef.id;
@@ -632,8 +650,14 @@
         // Get all users from Firestore
         async function getUsersFromFirestore() {
             try {
+                console.log('Attempting to get users from Firestore...');
+                
                 if (!isFirebaseInitialized()) {
                     throw new Error('Firebase not initialized');
+                }
+                
+                if (!db) {
+                    throw new Error('Firestore database (db) is not defined');
                 }
                 
                 const snapshot = await db.collection('users').orderBy('createdAt', 'desc').get();
