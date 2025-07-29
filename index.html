@@ -246,6 +246,7 @@
                     
                     // Initialize the hostel system only when user is authenticated
                     initializeHostels();
+                    testHostelData(); // Test hostelData initialization
                     // Load persistent data from Google Sheets and update hostelData
                     fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec')
                       .then(response => response.json())
@@ -403,53 +404,84 @@
 
         // Populate manual room options based on hostel and gender
         function populateManualRoomOptions() {
-            const hostelId = document.getElementById('manualHostelSelect').value;
-            const gender = document.getElementById('manualGender').value;
-            const roomSelect = document.getElementById('manualRoomSelect');
-            
-            // Clear existing options
-            roomSelect.innerHTML = '<option value="">Select Room</option>';
-            
-            if (!hostelId || !gender) return;
-            
-            const rooms = hostelData[hostelId].rooms;
-            
-            for (const roomKey in rooms) {
-                const room = rooms[roomKey];
+            try {
+                const hostelId = document.getElementById('manualHostelSelect').value;
+                const gender = document.getElementById('manualGender').value;
+                const roomSelect = document.getElementById('manualRoomSelect');
                 
-                // Skip if room is full
-                if (room.status === 'full') continue;
+                console.log('Populating rooms for hostel:', hostelId, 'gender:', gender);
                 
-                // Check gender restrictions
-                if (isFemaleForbiddenRoom(roomKey, gender)) continue;
+                // Clear existing options
+                roomSelect.innerHTML = '<option value="">Select Room</option>';
                 
-                // Check gender separation: only show rooms that are empty or have only same-gender occupants
-                let occupantsGender = [];
-                if (room.gender1) occupantsGender.push(room.gender1);
-                if (room.gender2) occupantsGender.push(room.gender2);
-                if (room.gender3) occupantsGender.push(room.gender3);
-                if (room.gender4) occupantsGender.push(room.gender4);
-                
-                if (occupantsGender.length > 0 && occupantsGender.some(g => g !== gender)) continue;
-                
-                // Gather occupant names
-                let occupants = [];
-                if (room.student1) occupants.push(room.student1);
-                if (room.student2) occupants.push(room.student2);
-                if (room.student3) occupants.push(room.student3);
-                if (room.student4) occupants.push(room.student4);
-                
-                let occupantsText = occupants.length > 0 ? occupants.join(', ') : 'Empty';
-                
-                // Show price details if available
-                let priceText = '';
-                if (room.roomPrice != null && room.maintenanceFee != null) {
-                    priceText = ` | ₵${room.roomPrice} + ₵${room.maintenanceFee}`;
+                if (!hostelId || !gender) {
+                    console.log('Missing hostel or gender selection');
+                    return;
                 }
                 
-                // Option text
-                let optionText = `${roomKey} (${room.occupancy}/${getTotalBeds(room)} beds) - [${occupantsText}]${priceText}`;
-                roomSelect.innerHTML += `<option value="${roomKey}">${optionText}</option>`;
+                // Check if hostelData is initialized
+                if (!hostelData || !hostelData[hostelId]) {
+                    console.error('hostelData not initialized or hostel not found:', hostelId);
+                    return;
+                }
+                
+                const rooms = hostelData[hostelId].rooms;
+                console.log('Available rooms:', Object.keys(rooms));
+                
+                let availableRooms = 0;
+                
+                for (const roomKey in rooms) {
+                    const room = rooms[roomKey];
+                    
+                    // Skip if room is full
+                    if (room.status === 'full') {
+                        console.log('Skipping full room:', roomKey);
+                        continue;
+                    }
+                    
+                    // Check gender restrictions
+                    if (isFemaleForbiddenRoom(roomKey, gender)) {
+                        console.log('Skipping forbidden room for gender:', roomKey);
+                        continue;
+                    }
+                    
+                    // Check gender separation: only show rooms that are empty or have only same-gender occupants
+                    let occupantsGender = [];
+                    if (room.gender1) occupantsGender.push(room.gender1);
+                    if (room.gender2) occupantsGender.push(room.gender2);
+                    if (room.gender3) occupantsGender.push(room.gender3);
+                    if (room.gender4) occupantsGender.push(room.gender4);
+                    
+                    if (occupantsGender.length > 0 && occupantsGender.some(g => g !== gender)) {
+                        console.log('Skipping room with mixed genders:', roomKey);
+                        continue;
+                    }
+                    
+                    // Gather occupant names
+                    let occupants = [];
+                    if (room.student1) occupants.push(room.student1);
+                    if (room.student2) occupants.push(room.student2);
+                    if (room.student3) occupants.push(room.student3);
+                    if (room.student4) occupants.push(room.student4);
+                    
+                    let occupantsText = occupants.length > 0 ? occupants.join(', ') : 'Empty';
+                    
+                    // Show price details if available
+                    let priceText = '';
+                    if (room.roomPrice != null && room.maintenanceFee != null) {
+                        priceText = ` | ₵${room.roomPrice} + ₵${room.maintenanceFee}`;
+                    }
+                    
+                    // Option text
+                    let optionText = `${roomKey} (${room.occupancy}/${getTotalBeds(room)} beds) - [${occupantsText}]${priceText}`;
+                    roomSelect.innerHTML += `<option value="${roomKey}">${optionText}</option>`;
+                    availableRooms++;
+                }
+                
+                console.log('Added', availableRooms, 'available rooms to dropdown');
+                
+            } catch (error) {
+                console.error('Error in populateManualRoomOptions:', error);
             }
         }
 
@@ -458,6 +490,16 @@
             if ('student4' in room) return 4;
             if ('student3' in room) return 3;
             return 2;
+        }
+
+        // Test function to verify hostelData is working
+        function testHostelData() {
+            console.log('Testing hostelData...');
+            console.log('hostelData exists:', !!hostelData);
+            if (hostelData) {
+                console.log('Hostel 1 rooms:', Object.keys(hostelData[1]?.rooms || {}));
+                console.log('Hostel 2 rooms:', Object.keys(hostelData[2]?.rooms || {}));
+            }
         }
     </script>
 </body>
