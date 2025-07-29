@@ -400,6 +400,65 @@
                 document.getElementById('autoForm').style.display = 'none';
             }
         }
+
+        // Populate manual room options based on hostel and gender
+        function populateManualRoomOptions() {
+            const hostelId = document.getElementById('manualHostelSelect').value;
+            const gender = document.getElementById('manualGender').value;
+            const roomSelect = document.getElementById('manualRoomSelect');
+            
+            // Clear existing options
+            roomSelect.innerHTML = '<option value="">Select Room</option>';
+            
+            if (!hostelId || !gender) return;
+            
+            const rooms = hostelData[hostelId].rooms;
+            
+            for (const roomKey in rooms) {
+                const room = rooms[roomKey];
+                
+                // Skip if room is full
+                if (room.status === 'full') continue;
+                
+                // Check gender restrictions
+                if (isFemaleForbiddenRoom(roomKey, gender)) continue;
+                
+                // Check gender separation: only show rooms that are empty or have only same-gender occupants
+                let occupantsGender = [];
+                if (room.gender1) occupantsGender.push(room.gender1);
+                if (room.gender2) occupantsGender.push(room.gender2);
+                if (room.gender3) occupantsGender.push(room.gender3);
+                if (room.gender4) occupantsGender.push(room.gender4);
+                
+                if (occupantsGender.length > 0 && occupantsGender.some(g => g !== gender)) continue;
+                
+                // Gather occupant names
+                let occupants = [];
+                if (room.student1) occupants.push(room.student1);
+                if (room.student2) occupants.push(room.student2);
+                if (room.student3) occupants.push(room.student3);
+                if (room.student4) occupants.push(room.student4);
+                
+                let occupantsText = occupants.length > 0 ? occupants.join(', ') : 'Empty';
+                
+                // Show price details if available
+                let priceText = '';
+                if (room.roomPrice != null && room.maintenanceFee != null) {
+                    priceText = ` | ₵${room.roomPrice} + ₵${room.maintenanceFee}`;
+                }
+                
+                // Option text
+                let optionText = `${roomKey} (${room.occupancy}/${getTotalBeds(room)} beds) - [${occupantsText}]${priceText}`;
+                roomSelect.innerHTML += `<option value="${roomKey}">${optionText}</option>`;
+            }
+        }
+
+        // Helper function to get total beds in a room
+        function getTotalBeds(room) {
+            if ('student4' in room) return 4;
+            if ('student3' in room) return 3;
+            return 2;
+        }
     </script>
 </body>
 </html>
