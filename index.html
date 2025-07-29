@@ -1035,7 +1035,10 @@
                 } else {
                     bedsHtml += `
                         <div class="bed-info" style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 5px; background-color: #f9f9f9;">
-                            <strong>Bed ${i}:</strong> Available
+                            <strong>Bed ${i}:</strong> Available<br>
+                            <button class="btn btn-sm btn-success" onclick="showBedAssignmentForm(${i}, '${hostelId}', '${roomKey}')" style="margin: 2px;">
+                                Assign Student
+                            </button>
                         </div>
                     `;
                 }
@@ -1056,6 +1059,143 @@
             `;
 
             modal.style.display = 'block';
+        }
+
+        // Show bed assignment form
+        function showBedAssignmentForm(bedNumber, hostelId, roomKey) {
+            const modal = document.getElementById('roomModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalContent = document.getElementById('modalContent');
+
+            modalTitle.textContent = `Assign Student to Bed ${bedNumber} - ${roomKey}`;
+            
+            modalContent.innerHTML = `
+                <div class="bed-assignment-form">
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label for="bedStudentName">Student Name</label>
+                        <input type="text" id="bedStudentName" placeholder="Enter student name" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label for="bedGender">Gender</label>
+                        <select id="bedGender" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="">Select Gender</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="btn btn-success" onclick="assignStudentToBed(${bedNumber}, '${hostelId}', '${roomKey}')" style="margin-right: 10px;">
+                            Assign Student
+                        </button>
+                        <button class="btn btn-secondary" onclick="showRoomDetails('${hostelId}', '${roomKey}')">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Assign student to specific bed
+        async function assignStudentToBed(bedNumber, hostelId, roomKey) {
+            try {
+                const studentName = document.getElementById('bedStudentName').value.trim();
+                const gender = document.getElementById('bedGender').value;
+                
+                if (!studentName || !gender) {
+                    alert('Please fill in all fields');
+                    return;
+                }
+                
+                const room = hostelData[hostelId].rooms[roomKey];
+                if (!room) {
+                    alert('Room not found');
+                    return;
+                }
+                
+                // Check if bed is already occupied
+                if (room[`student${bedNumber}`]) {
+                    alert(`Bed ${bedNumber} is already occupied by ${room[`student${bedNumber}`]}`);
+                    return;
+                }
+                
+                // Check gender restrictions for females
+                if (isFemaleForbiddenRoom(roomKey, gender)) {
+                    alert('Females cannot be assigned to rooms 301-310.');
+                    return;
+                }
+                
+                // Check gender separation: only assign if room is empty or all occupants are same gender
+                let occupantsGender = [];
+                for (let i = 1; i <= getTotalBeds(room); i++) {
+                    if (i !== bedNumber && room[`gender${i}`]) {
+                        occupantsGender.push(room[`gender${i}`]);
+                    }
+                }
+                
+                if (occupantsGender.length > 0 && occupantsGender.some(g => g !== gender)) {
+                    alert('Cannot mix genders in a room.');
+                    return;
+                }
+                
+                // Generate tenant code
+                const tenantCode = generateRoomCode();
+                
+                // Assign student to bed
+                room[`student${bedNumber}`] = studentName;
+                room[`tenantCode${bedNumber}`] = tenantCode;
+                room[`gender${bedNumber}`] = gender;
+                room[`paid${bedNumber}`] = false;
+                
+                // Update room occupancy and status
+                let totalBeds = getTotalBeds(room);
+                let occupiedBeds = 0;
+                
+                for (let i = 1; i <= totalBeds; i++) {
+                    if (room[`student${i}`]) {
+                        occupiedBeds++;
+                    }
+                }
+                
+                room.occupancy = occupiedBeds;
+                
+                if (occupiedBeds === totalBeds) {
+                    room.status = 'full';
+                } else if (occupiedBeds > 0) {
+                    room.status = 'partial';
+                } else {
+                    room.status = 'available';
+                }
+                
+                // Save to Firestore
+                const roomNumber = roomKey.replace('Room ', '');
+                await saveUserToFirestore(studentName, hostelId, roomNumber, tenantCode);
+                
+                // Save to Google Sheets
+                fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: studentName,
+                        room: roomNumber,
+                        hostel: hostelId,
+                        token: tenantCode
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                alert(`Successfully assigned ${studentName} to Bed ${bedNumber} in ${roomKey}.\nTenant Token: ${tenantCode}`);
+                
+                // Refresh the room details and hostel display
+                showRoomDetails(hostelId, roomKey);
+                renderHostels();
+                
+            } catch (error) {
+                console.error('Error assigning student to bed:', error);
+                alert('Error assigning student: ' + error.message);
+            }
         }
 
         // Close modal
