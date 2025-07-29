@@ -448,6 +448,57 @@
             <p>Manage room allocations across multiple hostels</p>
         </div>
 
+        <!-- Google Sheets Form -->
+        <div class="controls" style="margin-bottom: 20px;">
+            <form id="gsheetForm">
+                <div class="input-group">
+                    <label for="gsName">Name</label>
+                    <input type="text" id="gsName" name="name" required>
+                </div>
+                <div class="input-group">
+                    <label for="gsRoom">Room Number</label>
+                    <input type="text" id="gsRoom" name="room" required>
+                </div>
+                <div class="input-group">
+                    <label for="gsHostel">Hostel</label>
+                    <input type="text" id="gsHostel" name="hostel" required>
+                </div>
+                <div class="input-group">
+                    <label for="gsToken">Token</label>
+                    <input type="text" id="gsToken" name="token" required>
+                </div>
+                <button type="submit" class="btn btn-success">Send to Google Sheets</button>
+            </form>
+        </div>
+        <script>
+            const scriptURL = 'https://script.google.com/macros/s/AKfycbxefTGjAGefmZNS9dVaCbBaoQLFVYzmw9OFUKl7d-a9N-AkIl6YN0GTpRxwZPupacRa/exec'; // <-- Your Apps Script URL
+            const form = document.getElementById('gsheetForm');
+            form.addEventListener('submit', e => {
+                e.preventDefault();
+                fetch(scriptURL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: form.name.value,
+                        room: form.room.value,
+                        hostel: form.hostel.value,
+                        token: form.token.value
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(result => {
+                    alert('Success! Data sent to Google Sheets.');
+                    form.reset();
+                })
+                .catch(error => {
+                    alert('Error! Data not sent.');
+                    console.error('Error!', error.message);
+                });
+            });
+        </script>
+
         <div class="controls">
             <div class="control-group">
                 <button id="autoModeBtn" class="btn btn-primary" onclick="setAllocationMode('auto')">Auto</button>
