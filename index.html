@@ -1019,15 +1019,22 @@
                 
                 if (student) {
                     const paidIcon = paid ? '✅' : '❌';
+                    const paidText = paid ? 'Paid' : 'Unpaid';
                     bedsHtml += `
-                        <div class="bed-info">
-                            <strong>Bed ${i}:</strong> ${student} ${paidIcon}<br>
-                            <small>Token: ${tenantCode || 'N/A'}</small>
+                        <div class="bed-info" style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 5px;">
+                            <strong>Bed ${i}:</strong> ${student} ${paidIcon} (${paidText})<br>
+                            <small>Token: ${tenantCode || 'N/A'}</small><br>
+                            <button class="btn btn-sm" onclick="togglePaidStatus(${i})" style="margin: 2px;">
+                                Mark as ${paid ? 'Unpaid' : 'Paid'}
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="removeTenant(${i})" style="margin: 2px;">
+                                Remove
+                            </button>
                         </div>
                     `;
                 } else {
                     bedsHtml += `
-                        <div class="bed-info">
+                        <div class="bed-info" style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 5px; background-color: #f9f9f9;">
                             <strong>Bed ${i}:</strong> Available
                         </div>
                     `;
@@ -1042,6 +1049,9 @@
                     <div class="beds-container">
                         ${bedsHtml}
                     </div>
+                    <div style="margin-top: 15px; text-align: center;">
+                        <button class="btn btn-danger" onclick="vacateRoom()">Vacate Entire Room</button>
+                    </div>
                 </div>
             `;
 
@@ -1053,6 +1063,216 @@
             const modal = document.getElementById('roomModal');
             if (modal) {
                 modal.style.display = 'none';
+            }
+        }
+
+        // Toggle paid status for a bed
+        function togglePaidStatus(bedNumber) {
+            try {
+                const modal = document.getElementById('roomModal');
+                const modalTitle = document.getElementById('modalTitle');
+                const roomKey = modalTitle.textContent.split(' - ')[0];
+                const hostelId = modalTitle.textContent.split(' - ')[1].replace('Hostel ', '');
+                
+                const room = hostelData[hostelId].rooms[roomKey];
+                if (!room) {
+                    console.error('Room not found:', roomKey);
+                    return;
+                }
+
+                const student = room[`student${bedNumber}`];
+                if (!student) {
+                    alert('No student assigned to this bed');
+                    return;
+                }
+
+                // Toggle paid status
+                const currentPaidStatus = room[`paid${bedNumber}`];
+                room[`paid${bedNumber}`] = !currentPaidStatus;
+
+                // If marking as paid, save to Google Sheets
+                if (!currentPaidStatus) {
+                    const tenantCode = room[`tenantCode${bedNumber}`];
+                    const roomNumber = roomKey.replace('Room ', '');
+                    
+                    fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: student,
+                            room: roomNumber,
+                            hostel: hostelId,
+                            token: tenantCode
+                        }),
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                }
+
+                // Refresh the modal to show updated status
+                showRoomDetails(hostelId, roomKey);
+                
+                console.log(`Bed ${bedNumber} payment status toggled to: ${room[`paid${bedNumber}`]}`);
+            } catch (error) {
+                console.error('Error toggling paid status:', error);
+                alert('Error updating payment status: ' + error.message);
+            }
+        }
+
+        // Remove tenant from a bed
+        function removeTenant(bedNumber) {
+            try {
+                const modal = document.getElementById('roomModal');
+                const modalTitle = document.getElementById('modalTitle');
+                const roomKey = modalTitle.textContent.split(' - ')[0];
+                const hostelId = modalTitle.textContent.split(' - ')[1].replace('Hostel ', '');
+                
+                const room = hostelData[hostelId].rooms[roomKey];
+                if (!room) {
+                    console.error('Room not found:', roomKey);
+                    return;
+                }
+
+                const student = room[`student${bedNumber}`];
+                if (!student) {
+                    alert('No student assigned to this bed');
+                    return;
+                }
+
+                if (confirm(`Are you sure you want to remove ${student} from Bed ${bedNumber}?`)) {
+                    // Clear the bed
+                    room[`student${bedNumber}`] = null;
+                    room[`tenantCode${bedNumber}`] = null;
+                    room[`gender${bedNumber}`] = null;
+                    room[`paid${bedNumber}`] = false;
+
+                    // Update room occupancy and status
+                    let totalBeds = getTotalBeds(room);
+                    let occupiedBeds = 0;
+                    
+                    for (let i = 1; i <= totalBeds; i++) {
+                        if (room[`student${i}`]) {
+                            occupiedBeds++;
+                        }
+                    }
+                    
+                    room.occupancy = occupiedBeds;
+                    
+                    if (occupiedBeds === 0) {
+                        room.status = 'available';
+                    } else if (occupiedBeds < totalBeds) {
+                        room.status = 'partial';
+                    } else {
+                        room.status = 'full';
+                    }
+
+                    // Refresh the modal and hostel display
+                    showRoomDetails(hostelId, roomKey);
+                    renderHostels();
+                    
+                    alert(`${student} has been removed from Bed ${bedNumber}`);
+                }
+            } catch (error) {
+                console.error('Error removing tenant:', error);
+                alert('Error removing tenant: ' + error.message);
+            }
+        }
+
+        // Clear all allocations
+        function clearAllAllocations() {
+            if (confirm('Are you sure you want to clear all room allocations? This cannot be undone.')) {
+                try {
+                    Object.values(hostelData).forEach(hostel => {
+                        Object.values(hostel.rooms).forEach(room => {
+                            // Clear all student data
+                            room.student1 = null;
+                            room.studentId1 = null;
+                            room.tenantCode1 = null;
+                            room.student2 = null;
+                            room.studentId2 = null;
+                            room.tenantCode2 = null;
+                            room.student3 = null;
+                            room.tenantCode3 = null;
+                            room.student4 = null;
+                            room.tenantCode4 = null;
+                            
+                            // Reset room status
+                            room.status = 'available';
+                            room.occupancy = 0;
+                            
+                            // Clear gender and payment data
+                            room.gender1 = null;
+                            room.gender2 = null;
+                            room.gender3 = null;
+                            room.gender4 = null;
+                            room.paid1 = false;
+                            room.paid2 = false;
+                            room.paid3 = false;
+                            room.paid4 = false;
+                        });
+                    });
+                    
+                    renderHostels();
+                    alert('All allocations cleared - all slots are now vacant');
+                } catch (error) {
+                    console.error('Error clearing allocations:', error);
+                    alert('Error clearing allocations: ' + error.message);
+                }
+            }
+        }
+
+        // Vacate room (remove all occupants)
+        function vacateRoom() {
+            try {
+                const modal = document.getElementById('roomModal');
+                const modalTitle = document.getElementById('modalTitle');
+                const roomKey = modalTitle.textContent.split(' - ')[0];
+                const hostelId = modalTitle.textContent.split(' - ')[1].replace('Hostel ', '');
+                
+                const room = hostelData[hostelId].rooms[roomKey];
+                if (!room) {
+                    console.error('Room not found:', roomKey);
+                    return;
+                }
+
+                let totalBeds = getTotalBeds(room);
+                let occupiedBeds = 0;
+                let occupants = [];
+                
+                for (let i = 1; i <= totalBeds; i++) {
+                    if (room[`student${i}`]) {
+                        occupiedBeds++;
+                        occupants.push(room[`student${i}`]);
+                    }
+                }
+
+                if (occupiedBeds === 0) {
+                    alert('This room is already empty');
+                    return;
+                }
+
+                if (confirm(`Are you sure you want to vacate ${roomKey}? This will remove: ${occupants.join(', ')}`)) {
+                    // Clear all beds in the room
+                    for (let i = 1; i <= totalBeds; i++) {
+                        room[`student${i}`] = null;
+                        room[`tenantCode${i}`] = null;
+                        room[`gender${i}`] = null;
+                        room[`paid${i}`] = false;
+                    }
+                    
+                    // Reset room status
+                    room.status = 'available';
+                    room.occupancy = 0;
+
+                    // Refresh the modal and hostel display
+                    showRoomDetails(hostelId, roomKey);
+                    renderHostels();
+                    
+                    alert(`${roomKey} has been vacated`);
+                }
+            } catch (error) {
+                console.error('Error vacating room:', error);
+                alert('Error vacating room: ' + error.message);
             }
         }
     </script>
