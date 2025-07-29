@@ -13,6 +13,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
+    <!-- Firebase Configuration -->
+    <script src="firebase.js"></script>
+    
     <!-- External CSS -->
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -302,51 +305,17 @@
         }
 
         function generateRoomCode() {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            let code = '';
-            for (let i = 0; i < 3; i++) {
-                code += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            code += '-';
-            for (let i = 0; i < 4; i++) {
-                code += Math.floor(Math.random() * 10);
-            }
-            return code;
-        }
-
-        // Declare Firebase variables in global scope
-        let auth;
-        let db;
-        
-        // Firebase configuration - Replace with your Firebase project config
-        const firebaseConfig = {
-            apiKey: "AIzaSyD9olGjCq2R5Ty-innj4b0ZSnJn-ztFV2I",
-            authDomain: "el-corazonslots.firebaseapp.com",
-            projectId: "el-corazonslots",
-            storageBucket: "el-corazonslots.firebasestorage.app",
-            messagingSenderId: "745745248762",
-            appId: "1:745745248762:web:752704c94963518b1c7443",
-            measurementId: "G-7Q0RQHVXX2"
-        };
-
-        // Initialize Firebase
-        try {
-            firebase.initializeApp(firebaseConfig);
-            auth = firebase.auth();
-            db = firebase.firestore(); // Initialize Firestore
-            console.log('Firebase initialized successfully');
-        } catch (error) {
-            console.error('Firebase initialization error:', error);
+            return FirebaseUtils.generateRoomCode();
         }
 
         // Function to check if Firebase is initialized
         function isFirebaseInitialized() {
-            return auth && db;
+            return FirebaseAuth && FirebaseAuth.isInitialized();
         }
 
         // Authentication state observer
-        if (auth) {
-            auth.onAuthStateChanged(function(user) {
+        if (FirebaseAuth && FirebaseAuth.isInitialized()) {
+            FirebaseAuth.onAuthStateChanged(function(user) {
                 if (user) {
                     // User is signed in
                     document.getElementById('authContainer').style.display = 'none';
@@ -392,11 +361,11 @@
                 }
             });
                     } else {
-            console.error('Auth not initialized');
+            console.error('Firebase Auth not initialized');
         }
 
         // Login function
-        function login() {
+        async function login() {
             try {
                 if (!isFirebaseInitialized()) {
                     throw new Error('Firebase not initialized');
@@ -404,22 +373,16 @@
                 const email = document.getElementById('loginEmail').value;
                 const password = document.getElementById('loginPassword').value;
                 
-                auth.signInWithEmailAndPassword(email, password)
-                    .then((userCredential) => {
-                        console.log('User logged in successfully');
-                    })
-                    .catch((error) => {
-                        console.error('Login error:', error);
-                        alert('Login failed: ' + error.message);
-                    });
+                await FirebaseAuth.signIn(email, password);
+                console.log('User logged in successfully');
             } catch (error) {
-                console.error('Login function error:', error);
-                alert('Login function error: ' + error.message);
+                console.error('Login error:', error);
+                alert('Login failed: ' + error.message);
             }
         }
 
         // Register function
-        function register() {
+        async function register() {
             try {
                 if (!isFirebaseInitialized()) {
                     throw new Error('Firebase not initialized');
@@ -427,35 +390,24 @@
                 const email = document.getElementById('registerEmail').value;
                 const password = document.getElementById('registerPassword').value;
                 
-                auth.createUserWithEmailAndPassword(email, password)
-                    .then((userCredential) => {
-                        console.log('User registered successfully');
-                    })
-                    .catch((error) => {
-                        console.error('Registration error:', error);
-                        alert('Registration failed: ' + error.message);
-                    });
+                await FirebaseAuth.signUp(email, password);
+                console.log('User registered successfully');
             } catch (error) {
-                console.error('Register function error:', error);
-                alert('Register function error: ' + error.message);
+                console.error('Registration error:', error);
+                alert('Registration failed: ' + error.message);
             }
         }
 
         // Logout function
-        function logout() {
+        async function logout() {
             try {
                 if (!isFirebaseInitialized()) {
                     throw new Error('Firebase not initialized');
                 }
-                auth.signOut()
-                    .then(() => {
-                        console.log('User logged out successfully');
-                    })
-                    .catch((error) => {
-                        console.error('Logout error:', error);
-                    });
+                await FirebaseAuth.signOut();
+                console.log('User logged out successfully');
             } catch (error) {
-                console.error('Logout function error:', error);
+                console.error('Logout error:', error);
             }
         }
     </script>
@@ -607,22 +559,7 @@
         // Save user details to Firestore
         async function saveUserToFirestore(name, hostel, roomNumber, token) {
             try {
-                if (!isFirebaseInitialized()) {
-                    throw new Error('Firebase not initialized');
-                }
-                
-                const userData = {
-                    name: name,
-                    hostel: hostel,
-                    roomNumber: roomNumber,
-                    token: token,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                
-                const docRef = await db.collection('users').add(userData);
-                console.log('User saved to Firestore with ID:', docRef.id);
-                return docRef.id;
+                return await FirestoreDB.saveUser(name, hostel, roomNumber, token);
             } catch (error) {
                 console.error('Error saving user to Firestore:', error);
                 throw error;
@@ -632,22 +569,7 @@
         // Get all users from Firestore
         async function getUsersFromFirestore() {
             try {
-                if (!isFirebaseInitialized()) {
-                    throw new Error('Firebase not initialized');
-                }
-                
-                const snapshot = await db.collection('users').orderBy('createdAt', 'desc').get();
-                const users = [];
-                
-                snapshot.forEach(doc => {
-                    users.push({
-                        id: doc.id,
-                        ...doc.data()
-                    });
-                });
-                
-                console.log('Retrieved users from Firestore:', users.length);
-                return users;
+                return await FirestoreDB.getAllUsers();
             } catch (error) {
                 console.error('Error getting users from Firestore:', error);
                 throw error;
@@ -657,17 +579,7 @@
         // Update user in Firestore
         async function updateUserInFirestore(userId, updatedData) {
             try {
-                if (!isFirebaseInitialized()) {
-                    throw new Error('Firebase not initialized');
-                }
-                
-                const updateData = {
-                    ...updatedData,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                
-                await db.collection('users').doc(userId).update(updateData);
-                console.log('User updated in Firestore:', userId);
+                await FirestoreDB.updateUser(userId, updatedData);
             } catch (error) {
                 console.error('Error updating user in Firestore:', error);
                 throw error;
@@ -677,12 +589,7 @@
         // Delete user from Firestore
         async function deleteUserFromFirestore(userId) {
             try {
-                if (!isFirebaseInitialized()) {
-                    throw new Error('Firebase not initialized');
-                }
-                
-                await db.collection('users').doc(userId).delete();
-                console.log('User deleted from Firestore:', userId);
+                await FirestoreDB.deleteUser(userId);
             } catch (error) {
                 console.error('Error deleting user from Firestore:', error);
                 throw error;
