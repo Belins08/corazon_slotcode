@@ -1148,6 +1148,18 @@
                 document.getElementById('autoStudentName').value = '';
                 document.getElementById('autoGender').value = '';
                 renderHostels();
+                fetch('https://script.google.com/macros/s/AKfycbxefTGjAGefmZNS9dVaCbBaoQLFVYzmw9OFUKl7d-a9N-AkIl6YN0GTpRxwZPupacRa/exec', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    name: studentName,
+                    room: assignedRoom.replace('Room ', ''),
+                    hostel: hostelId,
+                    token: tenantCode
+                  }),
+                  headers: {
+                    'Content-Type': 'application/json'
+                  }
+                });
             } else {
                 alert('No available beds in selected hostel for the selected gender');
             }
@@ -1201,6 +1213,18 @@
             document.getElementById('manualHostelSelect').value = '';
             document.getElementById('manualRoomSelect').innerHTML = '<option value="">Select Room</option>';
             renderHostels();
+            fetch('https://script.google.com/macros/s/AKfycbxefTGjAGefmZNS9dVaCbBaoQLFVYzmw9OFUKl7d-a9N-AkIl6YN0GTpRxwZPupacRa/exec', {
+              method: 'POST',
+              body: JSON.stringify({
+                name: studentName,
+                room: roomKey.replace('Room ', ''),
+                hostel: hostelId,
+                token: tenantCode
+              }),
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
         }
 
         // Add assignToBed function for admin assignment
@@ -1301,10 +1325,28 @@
             if (!currentSelectedRoom) return;
             const {hostelId, roomKey} = currentSelectedRoom;
             const room = hostelData[hostelId].rooms[roomKey];
+            // Before clearing student data, capture values:
+            const studentName = room[`student${bedNumber}`];
+            const tenantCode = room[`tenantCode${bedNumber}`];
             room[`student${bedNumber}`] = null;
             room[`tenantCode${bedNumber}`] = null;
             room[`gender${bedNumber}`] = null;
             room[`paid${bedNumber}`] = false;
+            // After clearing, if studentName and tenantCode existed, send delete request:
+            if (studentName && tenantCode) {
+              fetch('https://script.google.com/macros/s/AKfycbxefTGjAGefmZNS9dVaCbBaoQLFVYzmw9OFUKl7d-a9N-AkIl6YN0GTpRxwZPupacRa/exec?delete=true', {
+                method: 'POST',
+                body: JSON.stringify({
+                  name: studentName,
+                  room: roomKey.replace('Room ', ''),
+                  hostel: hostelId,
+                  token: tenantCode
+                }),
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              });
+            }
             // Update room status and occupancy
             let totalBeds = 2;
             if ('student3' in room) totalBeds = 3;
