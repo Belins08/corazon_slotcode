@@ -512,6 +512,7 @@
             <div class="control-group">
                 <button class="btn" onclick="generateReport()">📊 Generate Report</button>
                 <button class="btn" onclick="exportData()">📤 Export Data</button>
+                <button class="btn" onclick="exportExcel()">📥 Export to Excel</button>
                 <button class="btn btn-danger" onclick="clearAllAllocations()">🗑️ Clear All</button>
             </div>
         </div>
@@ -541,12 +542,49 @@
         </div>
     </div>
 
+    <!-- SheetJS library for Excel export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
         // Hostel data structure
         let hostelData = null;
         let currentSelectedRoom = null;
 
         // Save hostelData to localStorage
+
+        // Export hostelData to Excel file
+        function exportExcel() {
+            // Flatten hostelData for Excel
+            let rows = [];
+            Object.keys(hostelData).forEach(hostelId => {
+                const hostel = hostelData[hostelId];
+                Object.keys(hostel.rooms).forEach(roomKey => {
+                    const room = hostel.rooms[roomKey];
+                    let bedCount = 2;
+                    if ('student3' in room) bedCount = 3;
+                    if ('student4' in room) bedCount = 4;
+                    for (let i = 1; i <= bedCount; i++) {
+                        rows.push({
+                            Hostel: hostel.name,
+                            Room: roomKey,
+                            Bed: i,
+                            Student: room[`student${i}`] || '',
+                            TenantCode: room[`tenantCode${i}`] || '',
+                            Gender: room[`gender${i}`] || '',
+                            Paid: room[`paid${i}`] ? 'Yes' : 'No',
+                            RoomPrice: room.roomPrice || '',
+                            MaintenanceFee: room.maintenanceFee || '',
+                            Status: room.status
+                        });
+                    }
+                });
+            });
+            // Create worksheet and workbook
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'HostelData');
+            // Download Excel file
+            XLSX.writeFile(wb, 'hostel_data.xlsx');
+        }
         function saveHostelData() {
             try {
                 localStorage.setItem('hostelData', JSON.stringify(hostelData));
@@ -1394,35 +1432,64 @@
             initializeHostels();
         }
         renderHostels();
-        // Load persistent data from Google Sheets and update hostelData
-        fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec')
-          .then(response => {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.json();
-          })
-          .then(data => {
-            data.forEach(entry => {
-              const hostelId = entry.Hostel;
-              const roomKey = `Room ${entry["Room Number"]}`;
-              const room = hostelData[hostelId] && hostelData[hostelId].rooms[roomKey];
-              if (room) {
-                for (let i = 1; i <= 4; i++) {
-                  if (room[`student${i}`] === null || room[`student${i}`] === undefined) {
-                    room[`student${i}`] = entry.Name;
-                    room[`tenantCode${i}`] = entry.Token;
-                    room[`paid${i}`] = true;
-                    room.occupancy = (room.occupancy || 0) + 1;
-                    room.status = 'partial';
-                    break;
+
+        // Function to load persistent data from Google Sheets and update hostelData
+        function syncWithGoogleSheet() {
+            fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec')
+              .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+              })
+              .then(data => {
+                // Reset all rooms before syncing
+                Object.keys(hostelData).forEach(hostelId => {
+                  Object.keys(hostelData[hostelId].rooms).forEach(roomKey => {
+                    let room = hostelData[hostelId].rooms[roomKey];
+                    let bedCount = 2;
+                    if ('student3' in room) bedCount = 3;
+                    if ('student4' in room) bedCount = 4;
+                    for (let i = 1; i <= bedCount; i++) {
+                      room[`student${i}`] = null;
+                      room[`tenantCode${i}`] = null;
+                      room[`paid${i}`] = false;
+                      room[`gender${i}`] = null;
+                    }
+                    room.occupancy = 0;
+                    room.status = 'available';
+                  });
+                });
+                // Apply data from Google Sheet
+                data.forEach(entry => {
+                  const hostelId = entry.Hostel;
+                  const roomKey = `Room ${entry["Room Number"]}`;
+                  const room = hostelData[hostelId] && hostelData[hostelId].rooms[roomKey];
+                  if (room) {
+                    let bedCount = 2;
+                    if ('student3' in room) bedCount = 3;
+                    if ('student4' in room) bedCount = 4;
+                    for (let i = 1; i <= bedCount; i++) {
+                      if (room[`student${i}`] === null || room[`student${i}`] === undefined) {
+                        room[`student${i}`] = entry.Name;
+                        room[`tenantCode${i}`] = entry.Token;
+                        room[`paid${i}`] = true;
+                        room.occupancy = (room.occupancy || 0) + 1;
+                        room.status = room.occupancy === bedCount ? 'full' : 'partial';
+                        break;
+                      }
+                    }
                   }
-                }
-              }
-            });
-            renderHostels();
-          })
-          .catch(error => {
-            alert('Error loading data from Google Sheet: ' + error.message);
-          });
+                });
+                renderHostels();
+              })
+              .catch(error => {
+                alert('Error loading data from Google Sheet: ' + error.message);
+              });
+        }
+
+        // Initial sync
+        syncWithGoogleSheet();
+        // Poll every 30 seconds for updates
+        setInterval(syncWithGoogleSheet, 30000);
 
         // Helper to check if room is forbidden for females
         function isFemaleForbiddenRoom(roomKey, gender) {
