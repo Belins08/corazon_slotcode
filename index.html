@@ -369,6 +369,37 @@
             }
             return false;
         }
+
+        // Allocation mode management
+        let allocationMode = 'auto';
+        
+        function setAllocationMode(mode) {
+            allocationMode = mode;
+            
+            // Update button styles
+            const autoBtn = document.getElementById('autoModeBtn');
+            const manualBtn = document.getElementById('manualModeBtn');
+            
+            if (mode === 'auto') {
+                autoBtn.classList.remove('btn-secondary');
+                autoBtn.classList.add('btn-primary');
+                manualBtn.classList.remove('btn-primary');
+                manualBtn.classList.add('btn-secondary');
+                
+                // Show auto form, hide manual form
+                document.getElementById('autoForm').style.display = 'block';
+                document.getElementById('manualForm').style.display = 'none';
+            } else {
+                manualBtn.classList.remove('btn-secondary');
+                manualBtn.classList.add('btn-primary');
+                autoBtn.classList.remove('btn-primary');
+                autoBtn.classList.add('btn-secondary');
+                
+                // Show manual form, hide auto form
+                document.getElementById('manualForm').style.display = 'block';
+                document.getElementById('autoForm').style.display = 'none';
+            }
+        }
     </script>
 </body>
 </html>
