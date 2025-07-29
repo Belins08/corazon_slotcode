@@ -543,43 +543,62 @@
 
     <script>
         // Hostel data structure
-        let hostelData = {
-            1: {
-                name: "Hostel 1",
-                rooms: {}
-            },
-            2: {
-                name: "Hostel 2", 
-                rooms: {}
-            }
-        };
-
+        let hostelData = null;
         let currentSelectedRoom = null;
+
+        // Save hostelData to localStorage
+        function saveHostelData() {
+            try {
+                localStorage.setItem('hostelData', JSON.stringify(hostelData));
+            } catch (e) {
+                console.error('Error saving hostelData:', e);
+            }
+        }
+
+        // Load hostelData from localStorage
+        function loadHostelData() {
+            try {
+                const data = localStorage.getItem('hostelData');
+                if (data) {
+                    hostelData = JSON.parse(data);
+                    return true;
+                }
+            } catch (e) {
+                console.error('Error loading hostelData:', e);
+            }
+            return false;
+        }
 
         // Initialize hostels with room data
         function initializeHostels() {
-            // Generate rooms for both hostels with proper floor numbering
-            // Ground floor: 101-110, First floor: 201-210, Third floor: 301-310
-            const floors = [1, 2, 3]; // Ground, First, Third floors
-            
+            // If hostelData is already loaded from localStorage, skip initialization
+            if (hostelData) return;
+            hostelData = {
+                1: {
+                    name: "Hostel 1",
+                    rooms: {}
+                },
+                2: {
+                    name: "Hostel 2", 
+                    rooms: {}
+                }
+            };
+            const floors = [1, 2, 3];
             [1, 2].forEach(hostelId => {
                 floors.forEach(floor => {
                     const floorPrefix = floor === 1 ? 1 : floor === 2 ? 2 : 3;
                     for (let room = 1; room <= 10; room++) {
                         const roomNumber = `${floorPrefix}${room < 10 ? '0' : ''}${room}`;
-                        
-                        // Calculate room price based on hostel and floor
                         let roomPrice;
                         if (hostelId === 1) {
-                            roomPrice = 7200; // All floors of Hostel 1
-                        } else { // Hostel 2
-                            if (floor === 1) { // Ground floor
+                            roomPrice = 7200;
+                        } else {
+                            if (floor === 1) {
                                 roomPrice = 7200;
-                            } else { // First and Third floors
+                            } else {
                                 roomPrice = 7600;
                             }
                         }
-                        
                         hostelData[hostelId].rooms[`Room ${roomNumber}`] = {
                             code: generateRoomCode(),
                             student1: null,
@@ -588,22 +607,19 @@
                             student2: null,
                             studentId2: null,
                             tenantCode2: null,
-                            status: 'available', // available, partial, full, reserved
+                            status: 'available',
                             occupancy: 0,
                             roomPrice: roomPrice,
                             maintenanceFee: 400,
-                            gender1: null, // For gender separation
-                            gender2: null, // For gender separation
+                            gender1: null,
+                            gender2: null,
                             paid1: false, paid2: false,
                             paid3: false, paid4: false
                         };
                     }
                 });
             });
-
-            // Add special rooms for Hostel 2
             if (hostelData[2]) {
-                // Room 211 (3 beds, no price)
                 hostelData[2].rooms['Room 211'] = {
                     code: generateRoomCode(),
                     student1: null, student2: null, student3: null,
@@ -613,7 +629,6 @@
                     gender1: null, gender2: null, gender3: null,
                     paid1: false, paid2: false, paid3: false
                 };
-                // Room 401 (4 beds, no price)
                 hostelData[2].rooms['Room 401'] = {
                     code: generateRoomCode(),
                     student1: null, student2: null, student3: null, student4: null,
@@ -623,7 +638,6 @@
                     gender1: null, gender2: null, gender3: null, gender4: null,
                     paid1: false, paid2: false, paid3: false, paid4: false
                 };
-                // Room 402 (2 beds, no price)
                 hostelData[2].rooms['Room 402'] = {
                     code: generateRoomCode(),
                     student1: null, student2: null,
@@ -634,8 +648,6 @@
                     paid1: false, paid2: false
                 };
             }
-
-            // Add some sample data
             addSampleData();
         }
 
@@ -685,6 +697,7 @@
             });
 
             updateStats();
+            saveHostelData();
         }
 
         function renderRooms(hostelId) {
@@ -1376,23 +1389,28 @@
         }
 
         // Initialize the system
-        initializeHostels();
+        // On page load, load hostelData from localStorage if available
+        if (!loadHostelData()) {
+            initializeHostels();
+        }
+        renderHostels();
         // Load persistent data from Google Sheets and update hostelData
         fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec')
-          .then(response => response.json())
+          .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+          })
           .then(data => {
             data.forEach(entry => {
-              // Convert Hostel and Room Number to match your keys
               const hostelId = entry.Hostel;
               const roomKey = `Room ${entry["Room Number"]}`;
-              // Find the first empty bed in the room
               const room = hostelData[hostelId] && hostelData[hostelId].rooms[roomKey];
               if (room) {
                 for (let i = 1; i <= 4; i++) {
                   if (room[`student${i}`] === null || room[`student${i}`] === undefined) {
                     room[`student${i}`] = entry.Name;
                     room[`tenantCode${i}`] = entry.Token;
-                    room[`paid${i}`] = true; // Assume paid if it's in the sheet
+                    room[`paid${i}`] = true;
                     room.occupancy = (room.occupancy || 0) + 1;
                     room.status = 'partial';
                     break;
@@ -1401,6 +1419,9 @@
               }
             });
             renderHostels();
+          })
+          .catch(error => {
+            alert('Error loading data from Google Sheet: ' + error.message);
           });
 
         // Helper to check if room is forbidden for females
