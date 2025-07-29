@@ -143,7 +143,6 @@
             </div>
             <div class="control-group">
                 <button class="btn" onclick="generateReport()">📊 Generate Report</button>
-                <button class="btn" onclick="exportData()">📤 Export Data</button>
                 <button class="btn" onclick="exportExcel()">📥 Export to Excel</button>
                 <button class="btn btn-danger" onclick="clearAllAllocations()">🗑️ Clear All</button>
             </div>
@@ -186,7 +185,6 @@
             <div style="display: flex; flex-direction: column; gap: 15px;">
                 <button class="btn btn-success" onclick="quickAssign()">Quick Assign</button>
                 <button class="btn" onclick="showStats()">View Statistics</button>
-                <button class="btn" onclick="exportData()">Export Data</button>
                 <button class="btn btn-danger" onclick="clearAllAllocations()">Clear All</button>
             </div>
         </div>
@@ -202,6 +200,7 @@
 
     <!-- External Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
 
     <!-- Firebase Configuration and Authentication -->
     <script>
@@ -391,7 +390,7 @@
                     showLogin(); // Show login form by default
                 }
             });
-        } else {
+                    } else {
             console.error('Auth not initialized');
         }
 
@@ -502,7 +501,7 @@
                 // Show auto form, hide manual form
                 document.getElementById('autoForm').style.display = 'block';
                 document.getElementById('manualForm').style.display = 'none';
-                } else {
+            } else {
                 manualBtn.classList.remove('btn-secondary');
                 manualBtn.classList.add('btn-primary');
                 autoBtn.classList.remove('btn-primary');
@@ -723,57 +722,57 @@
         // Auto allocation function
         async function assignAutoSlot() {
             try {
-                const studentName = document.getElementById('autoStudentName').value.trim();
-                const gender = document.getElementById('autoGender').value;
-                const hostelId = document.getElementById('autoHostelSelect').value;
+            const studentName = document.getElementById('autoStudentName').value.trim();
+            const gender = document.getElementById('autoGender').value;
+            const hostelId = document.getElementById('autoHostelSelect').value;
                 
-                if (!studentName || !hostelId || !gender) {
-                    alert('Please fill in all fields');
-                    return;
-                }
+            if (!studentName || !hostelId || !gender) {
+                alert('Please fill in all fields');
+                return;
+            }
                 
-                const hostel = hostelData[hostelId];
-                let assignedRoom = null;
+            const hostel = hostelData[hostelId];
+            let assignedRoom = null;
                 let tenantCode = generateRoomCode();
-                let assignedBed = null;
+            let assignedBed = null;
                 
-                // Try to fill partial rooms first
+            // Try to fill partial rooms first
+            for (let roomKey in hostel.rooms) {
+                if (isFemaleForbiddenRoom(roomKey, gender)) continue;
+                const room = hostel.rooms[roomKey];
+                if (room.status === 'partial') {
+                    // Gender separation: only assign if existing occupant is same gender
+                    if ((room.gender1 && room.gender1 !== gender) || (room.gender2 && room.gender2 !== gender)) continue;
+                    room.student2 = studentName;
+                    room.tenantCode2 = tenantCode;
+                    room.gender2 = gender;
+                    room.status = 'full';
+                    room.occupancy = 2;
+                    assignedRoom = roomKey;
+                    assignedBed = 2;
+                    break;
+                }
+            }
+                
+            // If no partial rooms, assign to available room
+            if (!assignedRoom) {
                 for (let roomKey in hostel.rooms) {
                     if (isFemaleForbiddenRoom(roomKey, gender)) continue;
                     const room = hostel.rooms[roomKey];
-                    if (room.status === 'partial') {
-                        // Gender separation: only assign if existing occupant is same gender
-                        if ((room.gender1 && room.gender1 !== gender) || (room.gender2 && room.gender2 !== gender)) continue;
-                        room.student2 = studentName;
-                        room.tenantCode2 = tenantCode;
-                        room.gender2 = gender;
-                        room.status = 'full';
-                        room.occupancy = 2;
+                    if (room.status === 'available') {
+                        room.student1 = studentName;
+                        room.tenantCode1 = tenantCode;
+                        room.gender1 = gender;
+                        room.status = 'partial';
+                        room.occupancy = 1;
                         assignedRoom = roomKey;
-                        assignedBed = 2;
+                        assignedBed = 1;
                         break;
                     }
                 }
+            }
                 
-                // If no partial rooms, assign to available room
-                if (!assignedRoom) {
-                    for (let roomKey in hostel.rooms) {
-                        if (isFemaleForbiddenRoom(roomKey, gender)) continue;
-                        const room = hostel.rooms[roomKey];
-                        if (room.status === 'available') {
-                            room.student1 = studentName;
-                            room.tenantCode1 = tenantCode;
-                            room.gender1 = gender;
-                            room.status = 'partial';
-                            room.occupancy = 1;
-                            assignedRoom = roomKey;
-                            assignedBed = 1;
-                            break;
-                        }
-                    }
-                }
-                
-                if (assignedRoom) {
+            if (assignedRoom) {
                     // Save to Firestore
                     const roomNumber = assignedRoom.replace('Room ', '');
                     await saveUserToFirestore(studentName, hostelId, roomNumber, tenantCode);
@@ -792,13 +791,13 @@
                         }
                     });
                     
-                    alert(`Assigned ${studentName} to ${assignedRoom} (Bed ${assignedBed}) in Hostel ${hostelId}.\nTenant Token: ${tenantCode}`);
-                    document.getElementById('autoStudentName').value = '';
-                    document.getElementById('autoGender').value = '';
-                    renderHostels();
-                } else {
-                    alert('No available beds in selected hostel for the selected gender');
-                }
+                alert(`Assigned ${studentName} to ${assignedRoom} (Bed ${assignedBed}) in Hostel ${hostelId}.\nTenant Token: ${tenantCode}`);
+                document.getElementById('autoStudentName').value = '';
+                document.getElementById('autoGender').value = '';
+                renderHostels();
+            } else {
+                alert('No available beds in selected hostel for the selected gender');
+            }
             } catch (error) {
                 console.error('Error in assignAutoSlot:', error);
                 alert('Error assigning slot: ' + error.message);
@@ -808,53 +807,53 @@
         // Manual allocation function
         async function assignManualSlot() {
             try {
-                const studentName = document.getElementById('manualStudentName').value.trim();
-                const gender = document.getElementById('manualGender').value;
-                const hostelId = document.getElementById('manualHostelSelect').value;
-                const roomKey = document.getElementById('manualRoomSelect').value;
+            const studentName = document.getElementById('manualStudentName').value.trim();
+            const gender = document.getElementById('manualGender').value;
+            const hostelId = document.getElementById('manualHostelSelect').value;
+            const roomKey = document.getElementById('manualRoomSelect').value;
                 
-                if (!studentName || !hostelId || !roomKey || !gender) {
-                    alert('Please fill in all fields');
-                    return;
-                }
+            if (!studentName || !hostelId || !roomKey || !gender) {
+                alert('Please fill in all fields');
+                return;
+            }
                 
-                if (isFemaleForbiddenRoom(roomKey, gender)) {
-                    alert('Females cannot be assigned to rooms 301-310.');
-                    return;
-                }
+            if (isFemaleForbiddenRoom(roomKey, gender)) {
+                alert('Females cannot be assigned to rooms 301-310.');
+                return;
+            }
                 
-                const room = hostelData[hostelId].rooms[roomKey];
+            const room = hostelData[hostelId].rooms[roomKey];
                 
-                // Gender separation: only assign if room is empty or all occupants are same gender
-                let occupantsGender = [];
-                if (room.gender1) occupantsGender.push(room.gender1);
-                if (room.gender2) occupantsGender.push(room.gender2);
-                if (occupantsGender.length > 0 && occupantsGender.some(g => g !== gender)) {
-                    alert('Cannot mix genders in a room.');
-                    return;
-                }
+            // Gender separation: only assign if room is empty or all occupants are same gender
+            let occupantsGender = [];
+            if (room.gender1) occupantsGender.push(room.gender1);
+            if (room.gender2) occupantsGender.push(room.gender2);
+            if (occupantsGender.length > 0 && occupantsGender.some(g => g !== gender)) {
+                alert('Cannot mix genders in a room.');
+                return;
+            }
                 
                 const tenantCode = generateRoomCode();
-                let assignedBed = null;
+            let assignedBed = null;
                 
-                if (!room.student1) {
-                    room.student1 = studentName;
-                    room.tenantCode1 = tenantCode;
-                    room.gender1 = gender;
-                    room.status = room.student2 ? 'partial' : 'partial';
-                    room.occupancy = room.student2 ? 2 : 1;
-                    assignedBed = 1;
-                } else if (!room.student2) {
-                    room.student2 = studentName;
-                    room.tenantCode2 = tenantCode;
-                    room.gender2 = gender;
-                    room.status = 'full';
-                    room.occupancy = 2;
-                    assignedBed = 2;
-                } else {
-                    alert('Room is already full');
-                    return;
-                }
+            if (!room.student1) {
+                room.student1 = studentName;
+                room.tenantCode1 = tenantCode;
+                room.gender1 = gender;
+                room.status = room.student2 ? 'partial' : 'partial';
+                room.occupancy = room.student2 ? 2 : 1;
+                assignedBed = 1;
+            } else if (!room.student2) {
+                room.student2 = studentName;
+                room.tenantCode2 = tenantCode;
+                room.gender2 = gender;
+                room.status = 'full';
+                room.occupancy = 2;
+                assignedBed = 2;
+            } else {
+                alert('Room is already full');
+                return;
+            }
                 
                 // Save to Firestore
                 const roomNumber = roomKey.replace('Room ', '');
@@ -874,12 +873,12 @@
                     }
                 });
                 
-                alert(`Assigned ${studentName} to ${roomKey} (Bed ${assignedBed}) in Hostel ${hostelId}.\nTenant Token: ${tenantCode}`);
-                document.getElementById('manualStudentName').value = '';
-                document.getElementById('manualGender').value = '';
-                document.getElementById('manualHostelSelect').value = '';
-                document.getElementById('manualRoomSelect').innerHTML = '<option value="">Select Room</option>';
-                renderHostels();
+            alert(`Assigned ${studentName} to ${roomKey} (Bed ${assignedBed}) in Hostel ${hostelId}.\nTenant Token: ${tenantCode}`);
+            document.getElementById('manualStudentName').value = '';
+            document.getElementById('manualGender').value = '';
+            document.getElementById('manualHostelSelect').value = '';
+            document.getElementById('manualRoomSelect').innerHTML = '<option value="">Select Room</option>';
+            renderHostels();
             } catch (error) {
                 console.error('Error in assignManualSlot:', error);
                 alert('Error assigning slot: ' + error.message);
@@ -1032,7 +1031,7 @@
                             </button>
                         </div>
                     `;
-                } else {
+            } else {
                     bedsHtml += `
                         <div class="bed-info" style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 5px; background-color: #f9f9f9;">
                             <strong>Bed ${i}:</strong> Available<br>
@@ -1121,23 +1120,23 @@
                 }
                 
                 // Check gender restrictions for females
-                if (isFemaleForbiddenRoom(roomKey, gender)) {
-                    alert('Females cannot be assigned to rooms 301-310.');
-                    return;
-                }
+            if (isFemaleForbiddenRoom(roomKey, gender)) {
+                alert('Females cannot be assigned to rooms 301-310.');
+                return;
+            }
                 
                 // Check gender separation: only assign if room is empty or all occupants are same gender
-                let occupantsGender = [];
+            let occupantsGender = [];
                 for (let i = 1; i <= getTotalBeds(room); i++) {
                     if (i !== bedNumber && room[`gender${i}`]) {
                         occupantsGender.push(room[`gender${i}`]);
-                    }
+            }
                 }
                 
-                if (occupantsGender.length > 0 && occupantsGender.some(g => g !== gender)) {
-                    alert('Cannot mix genders in a room.');
-                    return;
-                }
+            if (occupantsGender.length > 0 && occupantsGender.some(g => g !== gender)) {
+                alert('Cannot mix genders in a room.');
+                return;
+            }
                 
                 // Generate tenant code
                 const tenantCode = generateRoomCode();
@@ -1152,7 +1151,7 @@
                 let totalBeds = getTotalBeds(room);
                 let occupiedBeds = 0;
                 
-                for (let i = 1; i <= totalBeds; i++) {
+            for (let i = 1; i <= totalBeds; i++) {
                     if (room[`student${i}`]) {
                         occupiedBeds++;
                     }
@@ -1161,12 +1160,12 @@
                 room.occupancy = occupiedBeds;
                 
                 if (occupiedBeds === totalBeds) {
-                    room.status = 'full';
+                room.status = 'full';
                 } else if (occupiedBeds > 0) {
-                    room.status = 'partial';
-                } else {
-                    room.status = 'available';
-                }
+                room.status = 'partial';
+            } else {
+                room.status = 'available';
+            }
                 
                 // Save to Firestore
                 const roomNumber = roomKey.replace('Room ', '');
@@ -1189,7 +1188,7 @@
                 alert(`Successfully assigned ${studentName} to Bed ${bedNumber} in ${roomKey}.\nTenant Token: ${tenantCode}`);
                 
                 // Refresh the room details and hostel display
-                showRoomDetails(hostelId, roomKey);
+            showRoomDetails(hostelId, roomKey);
                 renderHostels();
                 
             } catch (error) {
@@ -1214,7 +1213,7 @@
                 const roomKey = modalTitle.textContent.split(' - ')[0];
                 const hostelId = modalTitle.textContent.split(' - ')[1].replace('Hostel ', '');
                 
-                const room = hostelData[hostelId].rooms[roomKey];
+            const room = hostelData[hostelId].rooms[roomKey];
                 if (!room) {
                     console.error('Room not found:', roomKey);
                     return;
@@ -1267,7 +1266,7 @@
                 const roomKey = modalTitle.textContent.split(' - ')[0];
                 const hostelId = modalTitle.textContent.split(' - ')[1].replace('Hostel ', '');
                 
-                const room = hostelData[hostelId].rooms[roomKey];
+            const room = hostelData[hostelId].rooms[roomKey];
                 if (!room) {
                     console.error('Room not found:', roomKey);
                     return;
@@ -1281,16 +1280,16 @@
 
                 if (confirm(`Are you sure you want to remove ${student} from Bed ${bedNumber}?`)) {
                     // Clear the bed
-                    room[`student${bedNumber}`] = null;
-                    room[`tenantCode${bedNumber}`] = null;
-                    room[`gender${bedNumber}`] = null;
-                    room[`paid${bedNumber}`] = false;
+            room[`student${bedNumber}`] = null;
+            room[`tenantCode${bedNumber}`] = null;
+            room[`gender${bedNumber}`] = null;
+            room[`paid${bedNumber}`] = false;
 
                     // Update room occupancy and status
                     let totalBeds = getTotalBeds(room);
                     let occupiedBeds = 0;
                     
-                    for (let i = 1; i <= totalBeds; i++) {
+            for (let i = 1; i <= totalBeds; i++) {
                         if (room[`student${i}`]) {
                             occupiedBeds++;
                         }
@@ -1301,13 +1300,13 @@
                     if (occupiedBeds === 0) {
                         room.status = 'available';
                     } else if (occupiedBeds < totalBeds) {
-                        room.status = 'partial';
-                    } else {
+                room.status = 'partial';
+            } else {
                         room.status = 'full';
-                    }
+            }
 
                     // Refresh the modal and hostel display
-                    showRoomDetails(hostelId, roomKey);
+            showRoomDetails(hostelId, roomKey);
                     renderHostels();
                     
                     alert(`${student} has been removed from Bed ${bedNumber}`);
@@ -1364,7 +1363,7 @@
         // Vacate room (remove all occupants)
         function vacateRoom() {
             try {
-                const modal = document.getElementById('roomModal');
+            const modal = document.getElementById('roomModal');
                 const modalTitle = document.getElementById('modalTitle');
                 const roomKey = modalTitle.textContent.split(' - ')[0];
                 const hostelId = modalTitle.textContent.split(' - ')[1].replace('Hostel ', '');
@@ -1406,8 +1405,8 @@
 
                     // Refresh the modal and hostel display
                     showRoomDetails(hostelId, roomKey);
-                    renderHostels();
-                    
+        renderHostels();
+
                     alert(`${roomKey} has been vacated`);
                 }
             } catch (error) {
