@@ -13,6 +13,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
+    <!-- Firebase Configuration -->
+    <script src="firebase-config.js"></script>
+    
     <!-- External CSS -->
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -314,39 +317,17 @@
             return code;
         }
 
-        // Declare Firebase variables in global scope
-        let auth;
-        let db;
-        
-        // Firebase configuration - Replace with your Firebase project config
-        const firebaseConfig = {
-            apiKey: "AIzaSyD9olGjCq2R5Ty-innj4b0ZSnJn-ztFV2I",
-            authDomain: "el-corazonslots.firebaseapp.com",
-            projectId: "el-corazonslots",
-            storageBucket: "el-corazonslots.firebasestorage.app",
-            messagingSenderId: "745745248762",
-            appId: "1:745745248762:web:752704c94963518b1c7443",
-            measurementId: "G-7Q0RQHVXX2"
-        };
+        // Firebase variables are now initialized in firebase-config.js
+        // These will be available globally from firebase-config.js
 
-        // Initialize Firebase
-        try {
-            firebase.initializeApp(firebaseConfig);
-            auth = firebase.auth();
-            db = firebase.firestore(); // Initialize Firestore
-            console.log('Firebase initialized successfully');
-            console.log('Auth object:', auth);
-            console.log('DB object:', db);
-            
-            // Test Firestore connection
-            if (db) {
-                console.log('Firestore database is available');
-            } else {
-                console.error('Firestore database is not available');
-            }
-            
-            // Set up authentication state observer after Firebase is initialized
-            auth.onAuthStateChanged(function(user) {
+        // Function to check if Firebase is initialized
+        function isFirebaseInitialized() {
+            return window.auth && window.db;
+        }
+
+        // Authentication state observer
+        if (window.auth) {
+            window.auth.onAuthStateChanged(function(user) {
                 if (user) {
                     // User is signed in
                     document.getElementById('authContainer').style.display = 'none';
@@ -391,20 +372,9 @@
                     showLogin(); // Show login form by default
                 }
             });
-        } catch (error) {
-            console.error('Firebase initialization error:', error);
+                    } else {
+            console.error('Auth not initialized');
         }
-
-        // Function to check if Firebase is initialized
-        function isFirebaseInitialized() {
-            if (!auth || !db) {
-                console.error('Firebase not initialized. Auth:', !!auth, 'DB:', !!db);
-                return false;
-            }
-            return true;
-        }
-
-        // Authentication state observer is now handled in the Firebase initialization block above
 
         // Login function
         function login() {
@@ -415,7 +385,7 @@
                 const email = document.getElementById('loginEmail').value;
                 const password = document.getElementById('loginPassword').value;
                 
-                auth.signInWithEmailAndPassword(email, password)
+                window.auth.signInWithEmailAndPassword(email, password)
                     .then((userCredential) => {
                         console.log('User logged in successfully');
                     })
@@ -438,7 +408,7 @@
                 const email = document.getElementById('registerEmail').value;
                 const password = document.getElementById('registerPassword').value;
                 
-                auth.createUserWithEmailAndPassword(email, password)
+                window.auth.createUserWithEmailAndPassword(email, password)
                     .then((userCredential) => {
                         console.log('User registered successfully');
                     })
@@ -458,7 +428,7 @@
                 if (!isFirebaseInitialized()) {
                     throw new Error('Firebase not initialized');
                 }
-                auth.signOut()
+                window.auth.signOut()
                     .then(() => {
                         console.log('User logged out successfully');
                     })
@@ -618,14 +588,8 @@
         // Save user details to Firestore
         async function saveUserToFirestore(name, hostel, roomNumber, token) {
             try {
-                console.log('Attempting to save user to Firestore:', { name, hostel, roomNumber, token });
-                
                 if (!isFirebaseInitialized()) {
                     throw new Error('Firebase not initialized');
-                }
-                
-                if (!db) {
-                    throw new Error('Firestore database (db) is not defined');
                 }
                 
                 const userData = {
@@ -637,8 +601,7 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 
-                console.log('User data to save:', userData);
-                const docRef = await db.collection('users').add(userData);
+                const docRef = await window.db.collection('users').add(userData);
                 console.log('User saved to Firestore with ID:', docRef.id);
                 return docRef.id;
             } catch (error) {
@@ -650,17 +613,11 @@
         // Get all users from Firestore
         async function getUsersFromFirestore() {
             try {
-                console.log('Attempting to get users from Firestore...');
-                
                 if (!isFirebaseInitialized()) {
                     throw new Error('Firebase not initialized');
                 }
                 
-                if (!db) {
-                    throw new Error('Firestore database (db) is not defined');
-                }
-                
-                const snapshot = await db.collection('users').orderBy('createdAt', 'desc').get();
+                const snapshot = await window.db.collection('users').orderBy('createdAt', 'desc').get();
                 const users = [];
                 
                 snapshot.forEach(doc => {
@@ -690,7 +647,7 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 
-                await db.collection('users').doc(userId).update(updateData);
+                await window.db.collection('users').doc(userId).update(updateData);
                 console.log('User updated in Firestore:', userId);
             } catch (error) {
                 console.error('Error updating user in Firestore:', error);
@@ -705,7 +662,7 @@
                     throw new Error('Firebase not initialized');
                 }
                 
-                await db.collection('users').doc(userId).delete();
+                await window.db.collection('users').doc(userId).delete();
                 console.log('User deleted from Firestore:', userId);
             } catch (error) {
                 console.error('Error deleting user from Firestore:', error);
