@@ -205,6 +205,10 @@
 
     <!-- Firebase Configuration and Authentication -->
     <script>
+        // Declare Firebase variables in global scope
+        let auth;
+        let db;
+        
         // Firebase configuration - Replace with your Firebase project config
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
@@ -218,59 +222,71 @@
         // Initialize Firebase
         try {
             firebase.initializeApp(firebaseConfig);
-            const auth = firebase.auth();
-            const db = firebase.firestore(); // Initialize Firestore
+            auth = firebase.auth();
+            db = firebase.firestore(); // Initialize Firestore
             console.log('Firebase initialized successfully');
         } catch (error) {
             console.error('Firebase initialization error:', error);
         }
 
+        // Function to check if Firebase is initialized
+        function isFirebaseInitialized() {
+            return auth && db;
+        }
+
         // Authentication state observer
-        auth.onAuthStateChanged(function(user) {
-            if (user) {
-                // User is signed in
-                document.getElementById('authContainer').style.display = 'none';
-                document.getElementById('mainContainer').style.display = 'block';
-                document.getElementById('userInfo').textContent = `Welcome, ${user.email}`;
-                
-                // Initialize the hostel system only when user is authenticated
-                initializeHostels();
-                // Load persistent data from Google Sheets and update hostelData
-                fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec')
-                  .then(response => response.json())
-                  .then(data => {
-                    data.forEach(entry => {
-                      // Convert Hostel and Room Number to match your keys
-                      const hostelId = entry.Hostel;
-                      const roomKey = `Room ${entry["Room Number"]}`;
-                      // Find the first empty bed in the room
-                      const room = hostelData[hostelId] && hostelData[hostelId].rooms[roomKey];
-                      if (room) {
-                        for (let i = 1; i <= 4; i++) {
-                          if (room[`student${i}`] === null || room[`student${i}`] === undefined) {
-                            room[`student${i}`] = entry.Name;
-                            room[`tenantCode${i}`] = entry.Token;
-                            room[`paid${i}`] = true; // Assume paid if it's in the sheet
-                            room.occupancy = (room.occupancy || 0) + 1;
-                            room.status = 'partial';
-                            break;
+        if (auth) {
+            auth.onAuthStateChanged(function(user) {
+                if (user) {
+                    // User is signed in
+                    document.getElementById('authContainer').style.display = 'none';
+                    document.getElementById('mainContainer').style.display = 'block';
+                    document.getElementById('userInfo').textContent = `Welcome, ${user.email}`;
+                    
+                    // Initialize the hostel system only when user is authenticated
+                    initializeHostels();
+                    // Load persistent data from Google Sheets and update hostelData
+                    fetch('https://script.google.com/macros/s/AKfycbxv62y2XpoapxBe_TMip29gS5VJBHUwYuDnmZIjYWZkCwd52Fs57bNiUkUrOecW9ZA2/exec')
+                      .then(response => response.json())
+                      .then(data => {
+                        data.forEach(entry => {
+                          // Convert Hostel and Room Number to match your keys
+                          const hostelId = entry.Hostel;
+                          const roomKey = `Room ${entry["Room Number"]}`;
+                          // Find the first empty bed in the room
+                          const room = hostelData[hostelId] && hostelData[hostelId].rooms[roomKey];
+                          if (room) {
+                            for (let i = 1; i <= 4; i++) {
+                              if (room[`student${i}`] === null || room[`student${i}`] === undefined) {
+                                room[`student${i}`] = entry.Name;
+                                room[`tenantCode${i}`] = entry.Token;
+                                room[`paid${i}`] = true; // Assume paid if it's in the sheet
+                                room.occupancy = (room.occupancy || 0) + 1;
+                                room.status = 'partial';
+                                break;
+                              }
+                            }
                           }
-                        }
-                      }
-                    });
-                    renderHostels();
-                  });
-            } else {
-                // User is signed out
-                document.getElementById('authContainer').style.display = 'block';
-                document.getElementById('mainContainer').style.display = 'none';
-                showLogin(); // Show login form by default
-            }
-        });
+                        });
+                        renderHostels();
+                      });
+                } else {
+                    // User is signed out
+                    document.getElementById('authContainer').style.display = 'block';
+                    document.getElementById('mainContainer').style.display = 'none';
+                    showLogin(); // Show login form by default
+                }
+            });
+        } else {
+            console.error('Auth not initialized');
+        }
 
         // Login function
         function login() {
             try {
+                if (!isFirebaseInitialized()) {
+                    throw new Error('Firebase not initialized');
+                }
                 const email = document.getElementById('loginEmail').value;
                 const password = document.getElementById('loginPassword').value;
                 
@@ -291,6 +307,9 @@
         // Register function
         function register() {
             try {
+                if (!isFirebaseInitialized()) {
+                    throw new Error('Firebase not initialized');
+                }
                 const email = document.getElementById('registerEmail').value;
                 const password = document.getElementById('registerPassword').value;
                 
@@ -311,6 +330,9 @@
         // Logout function
         function logout() {
             try {
+                if (!isFirebaseInitialized()) {
+                    throw new Error('Firebase not initialized');
+                }
                 auth.signOut()
                     .then(() => {
                         console.log('User logged out successfully');
