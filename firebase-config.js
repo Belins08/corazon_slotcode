@@ -14,24 +14,52 @@ const firebaseConfig = {
 // Initialize Firebase
 let auth, db;
 
-try {
-    firebase.initializeApp(firebaseConfig);
-    auth = firebase.auth();
-    db = firebase.firestore();
-    console.log('Firebase initialized successfully');
-} catch (error) {
-    console.error('Firebase initialization error:', error);
+// Function to initialize Firebase
+function initializeFirebase() {
+    try {
+        if (typeof firebase === 'undefined') {
+            console.error('Firebase SDK not loaded');
+            return false;
+        }
+        
+        firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.firestore();
+        console.log('Firebase initialized successfully');
+        return true;
+    } catch (error) {
+        console.error('Firebase initialization error:', error);
+        return false;
+    }
+}
+
+// Initialize Firebase when the script loads
+if (typeof firebase !== 'undefined') {
+    initializeFirebase();
+} else {
+    // Wait for Firebase to be loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof firebase !== 'undefined') {
+            initializeFirebase();
+        } else {
+            console.error('Firebase SDK not available');
+        }
+    });
 }
 
 // Firebase Authentication Functions
 class FirebaseAuth {
     // Check if Firebase is initialized
     static isInitialized() {
-        return auth && db;
+        return auth && db && typeof firebase !== 'undefined';
     }
 
     // Get current user
     static getCurrentUser() {
+        if (!this.isInitialized()) {
+            console.error('Firebase not initialized');
+            return null;
+        }
         return auth.currentUser;
     }
 
