@@ -148,9 +148,7 @@
             </div>
             <div class="control-group">
                 <button class="btn" onclick="generateReport()">📊 Generate Report</button>
-                <button class="btn" onclick="exportData()">📤 Export Data</button>
                 <button class="btn" onclick="exportExcel()">📥 Export to Excel</button>
-                <button class="btn btn-danger" onclick="clearAllAllocations()">🗑️ Clear All</button>
             </div>
         </div>
 
@@ -1329,6 +1327,83 @@
                 alert('Error vacating room: ' + error.message);
             }
         }
+
+        function exportExcel() {
+    // Prepare data for export
+    let exportData = [];
+    Object.keys(hostelData).forEach(hostelId => {
+        const hostel = hostelData[hostelId];
+        Object.keys(hostel.rooms).forEach(roomKey => {
+            const room = hostel.rooms[roomKey];
+            let totalBeds = getTotalBeds(room);
+            for (let i = 1; i <= totalBeds; i++) {
+                exportData.push({
+                    Hostel: hostel.name,
+                    Room: roomKey,
+                    Bed: i,
+                    Student: room[`student${i}`] || '',
+                    TenantCode: room[`tenantCode${i}`] || '',
+                    Gender: room[`gender${i}`] || '',
+                    Paid: room[`paid${i}`] ? 'Yes' : 'No'
+                });
+            }
+        });
+    });
+
+    // Convert to worksheet and workbook
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Hostel Data");
+
+    // Export to Excel file
+    XLSX.writeFile(wb, "hostel_data.xlsx");
+}
+
+function generateReport() {
+    // Prepare a simple HTML report of room allocations
+    let reportWindow = window.open('', '_blank');
+    let html = `<html><head><title>Hostel Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h2 { color: #3498db; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f4f4f4; }
+    </style>
+    </head><body>`;
+
+    Object.keys(hostelData).forEach(hostelId => {
+        const hostel = hostelData[hostelId];
+        html += `<h2>${hostel.name}</h2>`;
+        html += `<table><tr>
+            <th>Room</th>
+            <th>Bed</th>
+            <th>Student</th>
+            <th>Tenant Code</th>
+            <th>Gender</th>
+            <th>Paid</th>
+        </tr>`;
+        Object.keys(hostel.rooms).forEach(roomKey => {
+            const room = hostel.rooms[roomKey];
+            let totalBeds = getTotalBeds(room);
+            for (let i = 1; i <= totalBeds; i++) {
+                html += `<tr>
+                    <td>${roomKey}</td>
+                    <td>${i}</td>
+                    <td>${room[`student${i}`] || ''}</td>
+                    <td>${room[`tenantCode${i}`] || ''}</td>
+                    <td>${room[`gender${i}`] || ''}</td>
+                    <td>${room[`paid${i}`] ? 'Yes' : 'No'}</td>
+                </tr>`;
+            }
+        });
+        html += `</table>`;
+    });
+
+    html += `</body></html>`;
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+}
     </script>
 </body>
 </html>
